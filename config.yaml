@@ -1,0 +1,55 @@
+#path configurations
+#*****************************************************************
+histogram_results_path: ../histogram_results
+datasets_path: ../dataset/
+image_results_path: ../images_results
+stat_results_path: ../stat_results
+
+#noise configurations
+#******************************************************************
+#mean and standard deviation values to create gaussian distribution
+gaussian_noise_mean: 0.01
+gaussian_noise_std: 0.1
+
+#******************************************************************
+#define the class in which the histogram needs to be averaged
+#{
+#        1: cyl,
+#        2: inter,
+#        3: let,
+#        4: mod,
+#        5:para,
+#        6:super,
+#        7:svar
+#                    }
+histogram_avg_class_list: [1]
+
+#******************************************************************
+salt_pepper_noise_strength: 0.05
+
+#******************************************************************
+# Define whether to run the batches in parallel utilizing the
+# available cpu count or to run in serial mode
+run_parallel: False
+
+#******************************************************************
+#add the functions in the order you want to execute them
+# gray_scale: 1
+# add salt and pepper noise: 2
+# add gaussian noise: 3
+# histogram calculation: 4
+# histogram equalization:5
+# average histogram:6
+# linear filter : 7
+# median filter: 8
+function_list: [1,6]
+
+#*******************************************************************
+# filter mask size for all the filtering operations
+filter_mask_size: [3,3]
+
+#*******************************************************************
+linear_filter_weights: [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+median_filter_weights: [[1, 2, 1], [2, 3, 2], [1, 2, 1]]
+
+#*******************************************************************
