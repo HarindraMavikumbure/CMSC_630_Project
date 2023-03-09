@@ -5,7 +5,7 @@ To run the code:
     Download the zip file and unzip
     To install the external libraries
     
-        pip install requirements.txt
+    pip install requirements.txt
     
     update the config.yaml file for any configuration updates
     
