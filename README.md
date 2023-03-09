@@ -10,6 +10,7 @@ To run the code:
     
     update the config.yaml file for any configuration updates
     
+    Run the code: 
     python <path-to-file>/batchprocessor.py
     
     
