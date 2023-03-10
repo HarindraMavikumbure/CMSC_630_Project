@@ -34,7 +34,7 @@ class Histogram:
         bin_values, bins = np.histogram(image, bins, span)
         return bin_values, bins
 
-    def histogramEqualization(self, image):
+    def histogram_equalization(self, image):
         """
         Performs histogram equalization on an individual image by using the pixel's
         probability distribution within the image for automatic stretching or compression.
@@ -60,7 +60,7 @@ class Histogram:
 
         return equalized_image
 
-    def averageHistogramsByType(self):
+    def average_histogram_per_class(self):
         """
         Averages all histograms in class_wise_histograms dictionary
         """

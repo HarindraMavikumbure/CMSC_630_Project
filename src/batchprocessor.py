@@ -3,10 +3,10 @@ import os
 import time
 from pathlib import Path
 import yaml
-from src.filters.filters import Filters
-from src.histogram.histogram import Histogram
-from src.noise.noise import Noise
-from src.util.utils import Utils
+from filters.filters import Filters
+from histogram.histogram import Histogram
+from noise.noise import Noise
+from util.utils import Utils
 
 
 class BatchProcessor:
@@ -71,13 +71,13 @@ class BatchProcessor:
     def save_timing_data(self, result):
         self.time_stats.append(result[0])
 
-    def rgb_to_gray(self, image):
+    def rgb_to_gray(self, image, cur_image_path):
         return self.utils.rgb_to_grayscale(image)
 
-    def add_salt_pepper_noise(self, image):
+    def add_salt_pepper_noise(self, image, cur_image_path):
         return self.noise_functions.add_salt_and_pepper_noise(image)
 
-    def add_gaussian_noise(self, image):
+    def add_gaussian_noise(self, image, cur_image_path):
         return self.noise_functions.add_gaussian_noise(image)
 
     def create_histogram(self, image, cur_image_path):
@@ -85,8 +85,8 @@ class BatchProcessor:
         self.utils.save_histogram(bins, vals, cur_image_path)
         return None
 
-    def histogram_equalization(self, image):
-        return self.histogram_functions.histogramEqualization(image)
+    def histogram_equalization(self, image, cur_image_path):
+        return self.histogram_functions.histogram_equalization(image)
 
     def resolve_image_class(self, cur_image_path):
         class_result = None
@@ -104,10 +104,10 @@ class BatchProcessor:
             self.histogram_functions.class_wise_histograms[class_val].append(bins)
             self.histogram_functions.class_wise_histograms_bins[class_val].append(vals)
 
-    def apply_linear_filter(self, image):
+    def apply_linear_filter(self, image, cur_image_path):
         return self.filters.linear_filter(image, self.linear_filter_weights, self.filter_mask_size)
 
-    def apply_median_filter(self, image):
+    def apply_median_filter(self, image, cur_image_path):
         return self.filters.median_filter(image, self.median_filter_weights)
 
     def process(self, path, function_list):
@@ -140,7 +140,7 @@ class BatchProcessor:
 
         if 6 in self.function_list:
             start = time.time()
-            self.histogram_functions.averageHistogramsByType()
+            self.histogram_functions.average_histogram_per_class()
             for key, bins in self.histogram_functions.averaged_histograms.items():
                 for key1, vals in self.histogram_functions.averaged_histograms_bins.items():
                     if key1 == key:
@@ -157,7 +157,7 @@ class BatchProcessor:
 
         if 6 in self.function_list:
             start = time.time()
-            self.histogram_functions.averageHistogramsByType()
+            self.histogram_functions.average_histogram_per_class()
             for key, bins in self.histogram_functions.averaged_histograms.items():
                 for key1, vals in self.histogram_functions.averaged_histograms_bins.items():
                     if key1 == key:
