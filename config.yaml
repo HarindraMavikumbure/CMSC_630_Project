@@ -22,7 +22,7 @@ gaussian_noise_std: 0.1
 #        6:super,
 #        7:svar
 #                    }
-histogram_avg_class_list: [1]
+histogram_avg_class_list: [2,3,4,5,6,7]
 
 #******************************************************************
 salt_pepper_noise_strength: 0.05
@@ -30,7 +30,7 @@ salt_pepper_noise_strength: 0.05
 #******************************************************************
 # Define whether to run the batches in parallel utilizing the
 # available cpu count or to run in serial mode
-run_parallel: False
+run_parallel: True
 
 #******************************************************************
 #add the functions in the order you want to execute them
@@ -42,13 +42,14 @@ run_parallel: False
 # average histogram:6
 # linear filter : 7
 # median filter: 8
-function_list: [1,6]
+function_list: [1,3,8]
 
 #*******************************************************************
 # filter mask size for all the filtering operations
 filter_mask_size: [3,3]
 
 #*******************************************************************
+# filter weights for all the filtering operations
 linear_filter_weights: [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 median_filter_weights: [[1, 2, 1], [2, 3, 2], [1, 2, 1]]
 
