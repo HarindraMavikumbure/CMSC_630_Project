@@ -2,6 +2,10 @@ import numpy as np
 
 
 class Histogram:
+    """
+        This class contains the Histogram related functions such as create histogram, histogram equalization, average
+        histogram
+    """
 
     def __init__(self):
         # Store class wise histogram values
@@ -25,6 +29,15 @@ class Histogram:
                                            'svar': list()
                                            }
 
+    def histogram(self, image):
+        hist = np.zeros(256)
+
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                hist[image[i][j]] += 1
+
+        return hist
+
     def create_histogram(self, image, bins=256, span=None):
         """
         Performs histogram calculation (defaults to 255 bins).
@@ -36,17 +49,16 @@ class Histogram:
 
     def histogram_equalization(self, image):
         """
-        Performs histogram equalization on an individual image by using the pixel's
-        probability distribution within the image for automatic stretching or compression.
+        Performs histogram equalization on a given image.
         """
 
         num_pixels = image.size  # get total number of pixels within the image
-        bin_values, bins = self.create_histogram(image)  # get image histogram
-        num_bins = len(bins) - 1  # get total number of bins
+        bin_values, bins = self.create_histogram(image)  # get histogram
+        number_of_bins = len(bins) - 1  # get total number of bins
         equalized_bin_values = []  # bin values after histogram is equalized
         current_sum = 0
-        # Create pixel mapping lookup table
-        for i in range(num_bins):
+
+        for i in range(number_of_bins):
             current_sum = current_sum + bin_values[i]
             equalized_bin_values.append(round((current_sum * 255) / num_pixels))
 

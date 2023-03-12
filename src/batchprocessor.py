@@ -10,6 +10,10 @@ from util.utils import Utils
 
 
 class BatchProcessor:
+    """
+            This class contains the main starting point to initialize all the operations based on user inputs from the
+            config.yaml file
+    """
 
     def __init__(self, config_file=None):
         # create or set paths for files

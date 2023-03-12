@@ -6,6 +6,9 @@ import pandas as pd
 
 
 class Utils:
+    """
+    This class contains the Helper functions such as image reading, saving, histogram saving
+    """
 
     def __init__(self, output_path, histogram_path, stat_path):
         self.save_images_path = output_path

@@ -3,6 +3,10 @@ import numpy as np
 
 class Filters:
 
+    """
+            This class contains the Filter related functions such as linear filer and median filter
+    """
+
     def __init__(self, output_path):
         self.path = output_path
 
@@ -19,7 +23,7 @@ class Filters:
 
         Returns
         -------
-        image
+        filter applied image
 
         """
 
@@ -38,6 +42,18 @@ class Filters:
         return new_img
 
     def median_filter(self, gray_img, weights):
+        """
+
+        Parameters
+        ----------
+        gray_img
+        weights
+
+        Returns
+        -------
+        filter applied image
+
+        """
         weights = np.array(weights)
         f_w, f_h = weights.shape
         i_w, i_h = gray_img.shape

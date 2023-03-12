@@ -4,6 +4,9 @@ from numpy.random import default_rng
 
 
 class Noise:
+    """
+            This class contains the Noise addition related functions such as salt and pepper noise and gaussian noise
+    """
 
     def __init__(self, noise_strength, mean, std):
         self._rng = default_rng(seed=42)
@@ -27,6 +30,14 @@ class Noise:
 
     def add_gaussian_noise(self, image):
         noise = self._rng.normal(loc=self.mean, scale=self.std, size=image.shape)
+        image = image + noise
+        image = np.clip(image, 0, 255)
+        image = np.rint(image)
+        image = image.astype(np.uint8)
+        return image
+
+    def add_speckle_noise(self, image):
+        noise = random.random()
         image = image + noise
         image = np.clip(image, 0, 255)
         image = np.rint(image)
