@@ -6,11 +6,11 @@ To run the code:
     
     To install the external libraries
     
-    pip install requirements.txt
+    pip install -r requirements.txt
     
     update the config.yaml file for any configuration updates
     
     Run the code: 
-    python <path-to-file>/batchprocessor.py
+    python3 <path-to-file>/batchprocessor.py
     
     
