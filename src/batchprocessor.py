@@ -6,6 +6,9 @@ import yaml
 from filters.filters import Filters
 from histogram.histogram import Histogram
 from noise.noise import Noise
+from src.edge.edge import Edge_Detection
+from src.morphological.morphological import Morphological_Ops
+from src.segmentation.segmentation import Segmentation
 from util.utils import Utils
 
 
@@ -44,6 +47,9 @@ class BatchProcessor:
         self.filter_mask_size = self._config["filter_mask_size"]
         self.median_filter_weights = self._config["median_filter_weights"]
         self.linear_filter_weights = self._config["linear_filter_weights"]
+        self.edge_detector_type = self._config["edge_detector_type"]
+        self.k = self._config["k"]
+        self.max_iters = self._config["max_iters"]
 
         # initialize classes for different operations
         self.filters = Filters(output_path=self.save_path)
@@ -51,9 +57,13 @@ class BatchProcessor:
         self.noise_functions = Noise(self._config["salt_pepper_noise_strength"],
                                      self._config["gaussian_noise_mean"], self._config["gaussian_noise_std"])
         self.histogram_functions = Histogram()
+        self.edge_detection = Edge_Detection(output_path=self.save_path)
+        self.morphological_ops = Morphological_Ops(output_path=self.save_path)
+        self.segmentation = Segmentation(output_path=self.save_path)
 
         self.func_wise_time_stats = {}
         self.time_stats = []
+
         # functionality dictionary will be used to choose function which is input from the config.yaml
         self.function_dictionary = {'1': self.rgb_to_gray,
                                     '2': self.add_salt_pepper_noise,
@@ -62,7 +72,12 @@ class BatchProcessor:
                                     '5': self.histogram_equalization,
                                     '6': self.create_average_histograms,
                                     '7': self.apply_linear_filter,
-                                    '8': self.apply_median_filter}
+                                    '8': self.apply_median_filter,
+                                    '9': self.edge_detection_func,
+                                    '10': self.apply_erosion,
+                                    '11': self.apply_dilation,
+                                    '12': self.hist_thresholding,
+                                    '13': self.k_means_clustering}
 
         self.class_dictionary = {'1': 'cyl',
                                  '2': 'inter',
@@ -113,6 +128,21 @@ class BatchProcessor:
 
     def apply_median_filter(self, image, cur_image_path):
         return self.filters.median_filter(image, self.median_filter_weights)
+
+    def edge_detection_func(self, image, cur_image_path):
+        return self.edge_detection.edge_detection(image, self.edge_detector_type)
+
+    def apply_erosion(self, image, cur_image_path):
+        return self.morphological_ops.apply_erosion(image)
+
+    def apply_dilation(self, image, cur_image_path):
+        return self.morphological_ops.apply_dilation(image)
+
+    def hist_thresholding(self, image, cur_image_path):
+        return self.segmentation.hist_thresholding(image)
+
+    def k_means_clustering(self, image, cur_image_path):
+        return self.segmentation.kmeans_clustering(image, self.k, self.max_iters)
 
     def process(self, path, function_list):
 

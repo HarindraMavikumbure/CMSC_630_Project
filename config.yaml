@@ -42,7 +42,12 @@ run_parallel: True
 # average histogram:6
 # linear filter : 7
 # median filter: 8
-function_list: [1]
+# edge detection: 9
+# apply erosion: 10
+# apply dilation: 11
+# hist_thresholding: 12
+# k_means_clustering: 13
+function_list: [1,9, 10]
 
 #*******************************************************************
 # filter mask size for all the filtering operations
@@ -54,3 +59,15 @@ linear_filter_weights: [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 median_filter_weights: [[1, 2, 1], [2, 3, 2], [1, 2, 1]]
 
 #*******************************************************************
+# define the edge detection filter type
+# sobel: 1
+# improved sobel: 2
+# prewitt: 3
+edge_detector_type: [2]
+
+#********************************************************************
+# K means clustering parameters
+# K : number of clusters
+# max_iterations: maximum number of iterations
+k: 2
+max_iters: 40
