@@ -142,7 +142,7 @@ class BatchProcessor:
         return self.segmentation.hist_thresholding(image)
 
     def k_means_clustering(self, image, cur_image_path):
-        return self.segmentation.kmeans_clustering(image, self.k, self.max_iters)
+        return self.segmentation.k_means_segmentation(image, self.k, self.max_iters)
 
     def process(self, path, function_list):
 

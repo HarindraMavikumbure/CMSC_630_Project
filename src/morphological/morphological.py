@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 
+import cv2
 
 class Morphological_Ops:
     """
@@ -11,63 +12,39 @@ class Morphological_Ops:
     def __init__(self, output_path):
         self.path = output_path
 
-    def binarize(self, image, pivot=127):
-        copy_image = image.copy()
-        copy_image[copy_image > pivot] = 255
-        copy_image[copy_image < pivot] = 0
-        return copy_image
+    def apply_dilation(self, bin_img):
+        kernel = np.ones((3, 3), np.uint8)
 
-    def apply_erosion(self, image_edges, num_layers=1, structuring_element=np.array([[False]])):
-        """
-        Perform edge erosion of an edge based image using. Any size structuring element of
-        boolean values can be defined. The True in the matrix defines the places to apply the element.
-        Parameters:
-        -----------
-            image_edges (numpy_array) : 2D images of edges
-            num_layers (int) : the number of times to apply the structuring element to the edges
-            structuring_element (boolean numpy_array) : 2D array of boolean values which defines the
-                                                        structuring element to perform erosion with
-        Returns:
-        --------
-            image_edges_copy (numpy_array) : the eroded edge image
-        """
-        structuring_element = np.array([[False, True, False], [True, True, True], [False, True, False]])
-        structure_height, structure_width = structuring_element.shape
-        floor_structure_height = math.floor(structure_height / 2)
-        floor_structure_width = math.floor(structure_width / 2)
+        # Create a blank image to store the dilated image
+        dilated_img = np.zeros_like(bin_img)
 
-        # get size of image
-        height, width = image_edges.shape
-        # copy image_edges
-        image_edges_copy = np.copy(image_edges)
-        edge_erosion_temp = np.copy(image_edges)
+        # Loop through each pixel in the image
+        for i in range(1, bin_img.shape[0] - 1):
+            for j in range(1, bin_img.shape[1] - 1):
 
-        # Remove number of specified layers
-        for _ in range(num_layers):
-            # go through every pixel of image
-            for row in range(floor_structure_height, height - floor_structure_height):
-                for column in range(floor_structure_width, width - floor_structure_width):
-                    # if over an edge pixel apply the structuring element to it (intensity 0 == black)
-                    if image_edges_copy[row][column] == 0:
-                        # mapping of structuring element with zeros array and image
-                        # numpy.where() iterates over the structuring element bool array
-                        # and for every True it yields corresponding element from the first list (0 == for a black edge pixel)
-                        # and for every False it yields corresponding element from the second list (image_edges_copy pixel)
-                        mapping = np.where(structuring_element,
-                                           np.zeros((structure_height, structure_width)),
-                                           image_edges_copy[
-                                           row - floor_structure_height:row + floor_structure_height + 1,
-                                           column - floor_structure_width:column + floor_structure_width + 1])
+                # Check if the pixel is an edge (i.e., has a non-zero value)
+                if bin_img[i, j] > 0:
+                    # Dilate the edge by applying the kernel to the surrounding pixels
+                    dilated_pixel = np.max(bin_img[i - 1:i + 2, j - 1:j + 2] * kernel)
 
-                        # if structuring element present in edge image then retain pixel
-                        if np.array_equal(mapping, image_edges_copy[
-                                                   row - floor_structure_height:row + floor_structure_height + 1,
-                                                   column - floor_structure_width:column + floor_structure_width + 1]):
-                            edge_erosion_temp[row][column] = 0
-                        # else remove pixel
-                        else:
-                            edge_erosion_temp[row][column] = 255
+                    # Set the dilated pixel value in the output image
+                    dilated_img[i, j] = dilated_pixel
 
-            image_edges_copy = np.copy(edge_erosion_temp)  # copy over in preparation for removing another layer
+        return dilated_img
 
-        return image_edges_copy
+    def apply_erosion(self, img):
+        img = np.array(img)
+
+        # Define the kernel for erosion
+        kernel = np.ones((3, 3))
+
+        # Define the eroded image array
+        eroded_img = np.ones_like(img) * 255
+
+        # Perform erosion
+        for i in range(1, img.shape[0] - 1):
+            for j in range(1, img.shape[1] - 1):
+                if np.min(img[i - 1:i + 2, j - 1:j + 2]) == 0:
+                    eroded_img[i, j] = 0
+
+        return eroded_img

@@ -47,7 +47,7 @@ run_parallel: True
 # apply dilation: 11
 # hist_thresholding: 12
 # k_means_clustering: 13
-function_list: [1,9, 10]
+function_list: [1, 9,10]
 
 #*******************************************************************
 # filter mask size for all the filtering operations

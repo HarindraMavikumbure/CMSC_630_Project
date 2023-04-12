@@ -3,6 +3,7 @@ import os
 import random
 import numpy as np
 from matplotlib import pyplot as plt
+from numpy import floor
 
 
 class Segmentation:
@@ -41,74 +42,153 @@ class Segmentation:
         final_img[gray < final_thresh] = 0
         return final_img
 
-    def euclidean_distance(self, x1, x2):
-        return np.sqrt(np.sum((x1 - x2) ** 2))
+    def map_pixels(self, image_flat, cluster_centers, pixel_mapping_temp, num_cluster_centers, num_image_rows):
+        """
+        Called from Segmentation.k_means_segmentation. Maps all image pixels to a cluster by taking a 1x3 pixel and
+        calculating the distance between every cluster center. Appends pixels location to the cluster it has minimum
+        distance to.
+        Parameters:
+        -----------
+            image_flat (numpy array) : the 3D flattened image to calculate the distances over
+            cluster_centers (numpy array) : array of all cluster centroids
+            pixel_mapping_temp (numpy array) : the mapping of pixel to centroid. This array is passed and changed by reference.
+            num_cluster_centers (int) : the number of clusters
+            num_image_rows (int) : the length of image_flat which is equal to the number of pixels in the image
+        Returns:
+        --------
+
+            None
+        """
+
+        # For every pixel in the image
+        for i in range(num_image_rows):
+            distances = []
+            # For every cluster calculate which one the pixel is closest to
+            for j in range(num_cluster_centers):
+                # calculating Euclidean distance for the pixel against each cluster
+                distances.append(np.linalg.norm(image_flat[i][:] - cluster_centers[j]))
+            # For every pixel map to which cluster it belongs based on which one it is closest to
+            pixel_mapping_temp[i] = distances.index(min(distances))
+
+    def recalculate_cluster_centers(self, image_flat, cluster_centers, pixel_to_cluster_mapping, num_cluster_centers,
+                                    num_image_rows):
+        """
+        Called from Segmentation.k_means_segmentation.Recalculate cluster centers by averaging of all pixel values that
+        are assigned to the cluster. This cluster to pixel assignment is contained in the pixel_to_cluster_mapping array.
+        Cluster centers are then moved to their new centers of gravity. cluster_centers is passed and changed by reference.
+        If a cluster winds up with no pixels assigned to it, then that cluster will be randomly moved to a different location.
+        Parameters:
+        -----------
+            image_flat (numpy array) : the 3D flattened image
+            cluster_centers (numpy array) : array of all cluster centroids. Passed and changed by reference.
+            pixel_to_cluster_mapping (numpy array) : the mapping of pixel to centroid.
+            num_cluster_centers (int) : the number of clusters
+            num_image_rows (int) : the length of image_flat which is equal to the number of pixels in the image
+        Returns:
+        --------
+
+            None
+        """
+
+        # Calculate every new cluster center
+        for i in range(num_cluster_centers):
+            cluster_sum = np.zeros(3)
+            cluster_average = np.zeros(3)
+            pixel_count = 0
+
+            for j in range(num_image_rows):
+                # If a pixel belongs to a cluster then sum its values with other cluster pixels
+                if pixel_to_cluster_mapping[j] == i:
+                    cluster_sum = cluster_sum + image_flat[j][:]
+                    pixel_count = pixel_count + 1
+
+            # Only recalculate cluster center if a pixel is assigned to it
+            if pixel_count != 0:
+                cluster_average = cluster_sum / pixel_count  # get average of pixel values
+                cluster_centers[i][:] = cluster_average  # move cluster center
+            # If a cluster center has no pixels assigned to it then reinitialize it randomly
+            else:
+                cluster_centers[i][0] = random.randint(0, 255)  # red
+                cluster_centers[i][1] = random.randint(0, 255)  # green
+                cluster_centers[i][2] = random.randint(0, 255)  # blue
+
+    def segment_image(self, image_flat, cluster_centers, pixel_to_cluster_mapping, num_cluster_centers, num_image_rows):
+
+        # Calculate every new cluster center
+        for i in range(num_cluster_centers):
+            for j in range(num_image_rows):
+                # If a pixel belongs to a cluster reassign it's value to that of it's cluster centroid
+                if pixel_to_cluster_mapping[j] == i:
+                    image_flat[j][:] = cluster_centers[i][:]
 
     # Function to perform k means clustering
-    def kmeans_clustering(self, image, K, max_iters):
-        clusters = [[] for _ in range(K)]
-        centroids = []
-        y_pred, centroids = self.predict(image, K, max_iters, clusters, centroids)
-        centers = np.uint8(centroids)
-        y_pred = y_pred.astype(int)
-        np.unique(y_pred)
-        labels = y_pred.flatten()
-        segmented_image = centers[labels.flatten()]
-        segmented_image = segmented_image.reshape(image.shape)
-        return segmented_image
+    def k_means_segmentation(self, image, num_cluster_centers, k_means_max_iterations):
+        print("K means")
+        original_image_height, original_image_width, _ = image.shape
+        mid_row = floor(original_image_height / 2)
+        mid_column = floor(original_image_width / 2)
+        image_copy = np.copy(image)  # make copy of image
+        # get coordinates of pixels in (x,y)
+        # xy_coords = np.flip(np.column_stack(np.where(image_copy[:,:,0] >= 0)), axis=1)
 
-    def predict(self, X, K, max_iters, clusters, centroids):
-        X = X
-        n_samples, n_features = X.shape
+        # reshape the array into 2D matrix of 3 columns with each column representing a color spectrum
+        image_flat = np.reshape(image_copy, (image_copy.shape[0] * image_copy.shape[1], image_copy.shape[2]))
+        num_image_rows, num_image_columns = image_flat.shape
 
-        # initialize
-        random_sample_idxs = np.random.choice(n_samples, K, replace=False)
-        centroids = [X[idx] for idx in random_sample_idxs]
-        # Optimize clusters
-        for _ in range(max_iters):
-            # Assign samples to closest centroids (create clusters)
-            clusters = self._create_clusters(centroids, K, X)
-            # Calculate new centroids from the clusters
-            centroids_old = centroids
-            centroids = self._get_centroids(clusters, K, X, n_features)
+        # initialize new array with height equal to number of clusters and width of num_image_columns
+        cluster_centers = np.empty([num_cluster_centers, num_image_columns], dtype=np.float64)
 
-            # check if clusters have changed
-            if self._is_converged(centroids_old, centroids, K):
-                break
-        # Classify samples as the index of their clusters
-        return self._get_cluster_labels(clusters, n_samples), centroids
+        # list[i] of which pixel of image_flat[i][:] belongs to which cluster
+        pixel_to_cluster_mapping = np.empty([num_image_rows, 1], dtype=np.float64)
+        pixel_mapping_temp = np.copy(pixel_to_cluster_mapping)  # temp mapping array
 
-    def _get_cluster_labels(self, clusters, n_samples):
-        # each sample will get the label of the cluster it was assigned to
-        labels = np.empty(n_samples)
-        for cluster_idx, cluster in enumerate(clusters):
-            for sample_index in cluster:
-                labels[sample_index] = cluster_idx
-        return labels
+        # randomly initialize cluster centers after setting first cluster to central pixel's color
+        for i in range(num_cluster_centers):
+            # ensure first cluster finds color of central pixel in image
+            if i == 0:
+                cluster_centers[i][0] = image[mid_row][mid_column][0]  # red
+                cluster_centers[i][1] = image[mid_row][mid_column][1]  # green
+                cluster_centers[i][2] = image[mid_row][mid_column][2]  # blue
+            else:
+                cluster_centers[i][0] = random.randint(0, 255)  # red
+                cluster_centers[i][1] = random.randint(0, 255)  # green
+                cluster_centers[i][2] = random.randint(0, 255)  # blue
 
-    def _create_clusters(self, centroids, K, X):
-        # Assign the samples to the closest centroids to create clusters
-        clusters = [[] for _ in range(K)]
-        for idx, sample in enumerate(X):
-            centroid_idx = self._closest_centroid(sample, centroids)
-            clusters[centroid_idx].append(idx)
-        return clusters
+        pixel_changed_cluster_flag = True
+        iteration = 0
 
-    def _closest_centroid(self, sample, centroids):
-        # distance of the current sample to each centroid
-        distances = [self.euclidean_distance(sample, point) for point in centroids]
-        closest_index = np.argmin(distances)
-        return closest_index
+        # Perform K-means segmentation. Loop as long as pixels are being reassigned to clusters and max iterations not reached.
+        while pixel_changed_cluster_flag and (iteration != k_means_max_iterations):
+            # pixel_mapping_temp numpy array passed by reference
+            self.map_pixels(image_flat, cluster_centers, pixel_mapping_temp, num_cluster_centers, num_image_rows)
 
-    def _get_centroids(self, clusters, K, X, n_features):
-        # assign mean value of clusters to centroids
-        centroids = np.zeros((K, n_features))
-        for cluster_idx, cluster in enumerate(clusters):
-            cluster_mean = np.mean(X[cluster], axis=0)
-            centroids[cluster_idx] = cluster_mean
-        return centroids
+            # Check if any pixels changed clusters
+            comparison = pixel_to_cluster_mapping == pixel_mapping_temp
+            if comparison.all():
+                # no pixels changed clusters but need to check if all clusters have pixels assigned to them
+                for i in range(num_cluster_centers):
+                    # break if cluster found with no pixels assigned
+                    if i not in pixel_mapping_temp:
+                        pixel_changed_cluster_flag = True
+                        # Randomly reassign cluster which has no pixels
+                        cluster_centers[i][0] = random.randint(0, 255)  # red
+                        cluster_centers[i][1] = random.randint(0, 255)  # green
+                        cluster_centers[i][2] = random.randint(0, 255)  # blue
+                        break  # break out of for loop
+                    else:
+                        pixel_changed_cluster_flag = False
+            else:
+                pixel_changed_cluster_flag = True  # signal that pixels changed cluster assignments
+                pixel_to_cluster_mapping = np.copy(pixel_mapping_temp)  # set mapping to temp mapping
 
-    def _is_converged(self, centroids_old, centroids, K):
-        # distances between each old and new centroids, fol all centroids
-        distances = [self.euclidean_distance(centroids_old[i], centroids[i]) for i in range(K)]
-        return sum(distances) == 0
+                # calculate new cluster_centers based on average of pixels assigned to it
+                self.recalculate_cluster_centers(image_flat, cluster_centers, pixel_to_cluster_mapping,
+                                            num_cluster_centers, num_image_rows)
+                print(cluster_centers)
+
+            iteration = iteration + 1  # keep track of num iterations
+
+        # Reassign image pixel values to the cluster centroid values
+        self.segment_image(image_flat, cluster_centers, pixel_to_cluster_mapping, num_cluster_centers, num_image_rows)
+        print("Done")
+        return np.reshape(np.rint(image_flat), image.shape)
