@@ -77,7 +77,7 @@ class BatchProcessor:
                                     '10': self.apply_erosion,
                                     '11': self.apply_dilation,
                                     '12': self.hist_thresholding,
-                                    '13': self.k_means_clustering}
+                                    '13': self.k_means_segmentation}
 
         self.class_dictionary = {'1': 'cyl',
                                  '2': 'inter',
@@ -141,7 +141,7 @@ class BatchProcessor:
     def hist_thresholding(self, image, cur_image_path):
         return self.segmentation.hist_thresholding(image)
 
-    def k_means_clustering(self, image, cur_image_path):
+    def k_means_segmentation(self, image, cur_image_path):
         return self.segmentation.k_means_segmentation(image, self.k, self.max_iters)
 
     def process(self, path, function_list):
