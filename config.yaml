@@ -47,7 +47,10 @@ run_parallel: True
 # apply dilation: 11
 # hist_thresholding: 12
 # k_means_clustering: 13
-function_list: [1, 12]
+# feature_extraction: 14
+# knn_classification: 15
+
+function_list: [1, 14]
 
 #*******************************************************************
 # filter mask size for all the filtering operations
@@ -71,3 +74,11 @@ edge_detector_type: [2]
 # max_iterations: maximum number of iterations
 k: 2
 max_iters: 1
+
+#********************************************************************
+# KNN classifcation parameters
+# K : number of neibours
+# k folds: number of k folds
+k_knn: 2
+k_folds: 10
+

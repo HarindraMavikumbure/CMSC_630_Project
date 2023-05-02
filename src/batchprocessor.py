@@ -2,10 +2,15 @@ import multiprocessing
 import os
 import time
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 import yaml
 from filters.filters import Filters
 from histogram.histogram import Histogram
 from noise.noise import Noise
+from src.Features.features import Features
+from src.classification.classification import Classification
 from src.edge.edge import Edge_Detection
 from src.morphological.morphological import Morphological_Ops
 from src.segmentation.segmentation import Segmentation
@@ -50,6 +55,8 @@ class BatchProcessor:
         self.edge_detector_type = self._config["edge_detector_type"]
         self.k = self._config["k"]
         self.max_iters = self._config["max_iters"]
+        self.k_knn = self._config["k_knn"]
+        self.k_folds = self._config["k_folds"]
 
         # initialize classes for different operations
         self.filters = Filters(output_path=self.save_path)
@@ -60,9 +67,13 @@ class BatchProcessor:
         self.edge_detection = Edge_Detection(output_path=self.save_path)
         self.morphological_ops = Morphological_Ops(output_path=self.save_path)
         self.segmentation = Segmentation(output_path=self.save_path)
+        self.features = Features(output_path=self.save_path)
+        self.classification = Classification(output_path=self.save_path)
 
         self.func_wise_time_stats = {}
         self.time_stats = []
+        self.features_list = []
+        self.metrics_list = []
 
         # functionality dictionary will be used to choose function which is input from the config.yaml
         self.function_dictionary = {'1': self.rgb_to_gray,
@@ -77,7 +88,9 @@ class BatchProcessor:
                                     '10': self.apply_erosion,
                                     '11': self.apply_dilation,
                                     '12': self.hist_thresholding,
-                                    '13': self.k_means_segmentation}
+                                    '13': self.k_means_segmentation,
+                                    '14': self.feature_extractor,
+                                    '15': self.knn_classification}
 
         self.class_dictionary = {'1': 'cyl',
                                  '2': 'inter',
@@ -143,6 +156,24 @@ class BatchProcessor:
 
     def k_means_segmentation(self, image, cur_image_path):
         return self.segmentation.k_means_segmentation(image, self.k, self.max_iters)
+
+    def feature_extractor(self, image, cur_image_path):
+        file_name = Path(cur_image_path).name
+        features = np.zeros(11)
+        im_binary = self.k_means_segmentation(image, cur_image_path)
+        im_erosion = self.apply_erosion(im_binary, cur_image_path)
+        im_dilation = self.apply_dilation(im_binary, cur_image_path)
+        im_boundary = im_dilation - im_erosion
+        features[0], features[1], features[2], features[3], features[4], features[5], features[6], features[7], \
+            features[8], features[9] = self.features.feature_extraction(im_binary, im_boundary, im_dilation)
+        features[10] = self.utils.get_label(file_name)
+        self.features_list.append(features)
+        self.utils.save_features_to_csv(features)
+
+    def knn_classification(self, image, cur_image_path):
+        df_read = self.utils.read_features()
+        metrics = self.classification.classifcation(df_read, self.k_folds, self.k_knn)
+        self.metrics_list.append(metrics)
 
     def process(self, path, function_list):
 
@@ -219,3 +250,4 @@ if __name__ == "__main__":
     processor.func_wise_time_stats['Batch processing time'] = time.time() - start_time
     processor.func_wise_time_stats['processing time per image'] = average_processing_time
     processor.utils.save_stat_to_csv(processor.func_wise_time_stats)
+    processor.utils.save_metrics_to_csv(processor.metrics_list)

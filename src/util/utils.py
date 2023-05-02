@@ -3,7 +3,7 @@ import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
+from csv import writer
 
 class Utils:
     """
@@ -14,6 +14,25 @@ class Utils:
         self.save_images_path = output_path
         self.save_histogram_path = histogram_path
         self.save_stat_path = stat_path
+
+    def get_label(self, filename):
+        label = None
+        if 'cyl' in filename:
+            label = 1
+        if 'inter' in filename:
+            label = 2
+        if 'let' in filename:
+            label = 3
+        if 'mod' in filename:
+            label = 4
+        if 'para' in filename:
+            label = 5
+        if 'svar' in filename:
+            label = 6
+        if 'super' in filename:
+            label = 7
+
+        return label
 
     def get_image_path(self, root_dir):
         return [filename for filename in glob.iglob(root_dir + '**/*.BMP', recursive=True)]
@@ -35,7 +54,22 @@ class Utils:
     def save_stat_to_csv(self, stats):
         path = os.path.join(self.save_stat_path, 'statistics')  # join save path and filename
         data = pd.DataFrame.from_dict(stats, orient='index')
-        data.to_csv(path)
+        data.to_csv(path + '.csv')
+
+    def read_features(self):
+        path = os.path.join(self.save_stat_path, 'features')  # join save path and filename
+        df_read = pd.read_csv(path + '.csv', header=-1).values
+        return df_read
+
+    def save_features_to_csv(self, features):
+        df = pd.DataFrame(features, columns=['area', 'perimeter', 'compactness', 'center_i', 'center_j', 'inertia_1', 'inertia_2', 'inertia_3', 'eccentrisity', 'orientation', 'label'])
+        path = os.path.join(self.save_stat_path, 'features')  # join save path and filename
+        df.to_csv(path + '.csv', index=False, mode='a', sep=',', header=False)
+
+    def save_metrics_to_csv(self, metrics):
+        path = os.path.join(self.save_stat_path, 'metrics')  # join save path and filename
+        data = pd.DataFrame.from_dict(metrics, orient='index')
+        data.to_csv(path + '.csv')
 
     def save_histogram(self, bins, vals, image_pathname):
         """
