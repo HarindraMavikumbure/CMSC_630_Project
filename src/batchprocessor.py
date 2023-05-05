@@ -72,7 +72,7 @@ class BatchProcessor:
         self.morphological_ops = Morphological_Ops(output_path=self.save_path)
         self.segmentation = Segmentation(output_path=self.save_path)
         self.features = Features(self.save_path, self.hist_path, self.stats_path, self.feature_path)
-        self.classification = Classification(output_path=self.save_path)
+        self.classification = Classification(output_path=self.save_path, feature_path=self.feature_path, hist_path=self.hist_path, stats_path=self.stats_path)
 
         self.func_wise_time_stats = {}
         self.time_stats = []
