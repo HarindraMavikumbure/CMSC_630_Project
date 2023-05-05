@@ -1,3 +1,4 @@
+import csv
 import os
 import glob
 import matplotlib.pyplot as plt
@@ -5,15 +6,17 @@ import numpy as np
 import pandas as pd
 from csv import writer
 
+
 class Utils:
     """
     This class contains the Helper functions such as image reading, saving, histogram saving
     """
 
-    def __init__(self, output_path, histogram_path, stat_path):
+    def __init__(self, output_path, histogram_path, stat_path, feature_path):
         self.save_images_path = output_path
         self.save_histogram_path = histogram_path
         self.save_stat_path = stat_path
+        self.feature_path = feature_path
 
     def get_label(self, filename):
         label = None
@@ -52,24 +55,31 @@ class Utils:
                           dtype=np.float64)
 
     def save_stat_to_csv(self, stats):
-        path = os.path.join(self.save_stat_path, 'statistics')  # join save path and filename
+        path = os.path.join(self.save_stat_path, 'statistics.csv')  # join save path and filename
         data = pd.DataFrame.from_dict(stats, orient='index')
-        data.to_csv(path + '.csv')
+        data.to_csv(path)
 
     def read_features(self):
-        path = os.path.join(self.save_stat_path, 'features')  # join save path and filename
-        df_read = pd.read_csv(path + '.csv', header=-1).values
-        return df_read
+        path = os.path.join(self.feature_path, 'features.csv')  # join save path and filename
+        df = pd.read_csv(path,
+                              names=['area', 'perimeter', 'compactness',  'inertia_1',
+                                       'inertia_2',
+                                       'inertia_3', 'orientation', 'label'])
+        return df
 
     def save_features_to_csv(self, features):
-        df = pd.DataFrame(features, columns=['area', 'perimeter', 'compactness', 'center_i', 'center_j', 'inertia_1', 'inertia_2', 'inertia_3', 'eccentrisity', 'orientation', 'label'])
-        path = os.path.join(self.save_stat_path, 'features')  # join save path and filename
-        df.to_csv(path + '.csv', index=False, mode='a', sep=',', header=False)
+        print(features)
+        path = os.path.join(self.feature_path, 'features.csv')  # join save path and filename
+        if os.path.exists(path):
+            os.remove(path)
+        else:
+            df = pd.DataFrame(features)
+            df.to_csv(path, index=False, mode='w+', sep=',', header=False)
 
     def save_metrics_to_csv(self, metrics):
-        path = os.path.join(self.save_stat_path, 'metrics')  # join save path and filename
-        data = pd.DataFrame.from_dict(metrics, orient='index')
-        data.to_csv(path + '.csv')
+        path = os.path.join(self.save_stat_path, 'metrics.csv')  # join save path and filename
+        data = pd.DataFrame(metrics)
+        data.to_csv(path)
 
     def save_histogram(self, bins, vals, image_pathname):
         """

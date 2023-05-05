@@ -4,7 +4,7 @@ histogram_results_path: ../histogram_results
 datasets_path: ../dataset/
 image_results_path: ../images_results
 stat_results_path: ../stat_results
-
+features_results_path: ../features
 #noise configurations
 #******************************************************************
 #mean and standard deviation values to create gaussian distribution
@@ -50,7 +50,7 @@ run_parallel: True
 # feature_extraction: 14
 # knn_classification: 15
 
-function_list: [1, 14]
+function_list: [15]
 
 #*******************************************************************
 # filter mask size for all the filtering operations
@@ -79,6 +79,6 @@ max_iters: 1
 # KNN classifcation parameters
 # K : number of neibours
 # k folds: number of k folds
-k_knn: 2
+k_knn: 1
 k_folds: 10
 

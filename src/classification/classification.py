@@ -1,10 +1,15 @@
+import copy
 import math
 import os
 import random
 import numpy as np
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from src.util.utils import Utils
-from scipy import stats
+from scipy.stats import zscore, stats
 
 
 class Classification:
@@ -15,73 +20,145 @@ class Classification:
     def __init__(self, output_path):
         self.path = output_path
 
-    def KNN(self, test, train, k):
-        new_label = np.zeros(len(test))
-        for i in range(0, len(test)):
-            features = train[:, 0:-1] - test[:, 0:-1][i]
-            nearest_neighbors = np.sqrt(np.sum(features ** 2, axis=1))
-            nearest_neighbors = np.append(nearest_neighbors[:, np.newaxis], np.reshape(train[:, -1], (len(train), 1)),
-                                          axis=1)
-            nearest_neighbors = nearest_neighbors[nearest_neighbors[:, 0].argsort()]
-            nearest_neighbors = nearest_neighbors[0:k, :]
-            mode_label = stats.mode(nearest_neighbors[:, 1])
-            new_label[i] = mode_label[0]
-        return new_label
+    # Find the min and max values for each column
+    def dataset_minmax(self, dataset):
+        minmax = list()
+        for i in range(len(dataset[0])):
+            col_values = [row[i] for row in dataset]
+            value_min = min(col_values)
+            value_max = max(col_values)
+            minmax.append([value_min, value_max])
+        return minmax
 
-    def cross_validation(self, features, folds, k):
-        np.random.shuffle(features)
-        test = int(len(features) / folds)
-        new_label = np.array([])
-        for i in range(1, folds + 1):
-            train_features = np.copy(features)
-            test_features = features[i * test - test:i * test, :]
-            new_test_label = np.zeros(len(test_features))
-            train_features = np.delete(train_features, slice(i * test - test, i * test), axis=0)
-            new_test_label = self.KNN(test_features, train_features, k)
-            new_label = np.hstack((new_label, new_test_label))
-        return new_label
+    # Rescale dataset columns to the range 0-1
+    def normalize_dataset(self, dataset, minmax):
+        for row in dataset:
+            for i in range(len(row)):
+                row[i] = (row[i] - minmax[i][0]) / (minmax[i][1] - minmax[i][0])
 
-    def calculate_metrics(self, actual, predicted):
-        """
-        Calculates various classification metrics given actual and predicted labels
-        """
-        tp = 0  # True positives
-        fp = 0  # False positives
-        tn = 0  # True negatives
-        fn = 0  # False negatives
+    # Split a dataset into k folds
+    def cross_validation_split(self, dataset, n_folds):
+        dataset_split = list()
+        dataset_copy = dataset.values.tolist()
+        fold_size = int(len(dataset) / n_folds)
 
-        # Calculate true/false positives/negatives
+        for _ in range(n_folds):
+            fold = list()
+            while len(fold) < fold_size:
+                index = random.randrange(len(dataset_copy))
+                fold.append(dataset_copy.pop(index))
+            dataset_split.append(fold)
+        return dataset_split
+
+    # Calculate accuracy percentage
+    def accuracy_metric(self, actual, predicted):
+        correct = 0
         for i in range(len(actual)):
-            if actual[i] == 1 and predicted[i] == 1:
-                tp += 1
-            elif actual[i] == 0 and predicted[i] == 1:
-                fp += 1
-            elif actual[i] == 0 and predicted[i] == 0:
-                tn += 1
-            elif actual[i] == 1 and predicted[i] == 0:
-                fn += 1
+            if actual[i] == predicted[i]:
+                correct += 1
+        return correct / float(len(actual)) * 100.0
 
-        # Calculate precision, recall, and F1-score
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        f1 = 2 * (precision * recall) / (precision + recall)
-        # Calculate accuracy
-        accuracy = (tp + tn) / (tp + fp + tn + fn)
+    # Evaluate an algorithm using a cross validation split
+    def evaluate_algorithm(self, dataset, algorithm, n_folds, *args):
+        folds = self.cross_validation_split(dataset, n_folds)
+        scores = list()
+        for fold in folds:
+            train_set = list(folds)
+            train_set.remove(fold)
+            train_set = sum(train_set, [])
+            test_set = list()
+            for row in fold:
+                row_copy = list(row)
+                test_set.append(row_copy)
+                row_copy[-1] = None
 
-        return {
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "false_positives": fp,
-            "true_positives": tp,
-            "true_negatives": tn,
-            "false_negatives": fn
-        }
+            predicted = algorithm(train_set, test_set, *args)
+            actual = [row[-1] for row in fold]
+            accuracy = self.accuracy_metric(actual, predicted)
+            scores.append(accuracy)
+        return scores
 
-    def classifcation(self, df_read, fold, k):
-        df_normalized = stats.zscore(df_read[:, 0:-1])
-        df_normalized = np.append(df_normalized, np.reshape(df_read[:, -1], (len(df_read), 1)), axis=1)
-        new_label = self.cross_validation(df_normalized, fold, k)
-        metrics = self.calculate_metrics(df_normalized[:, -1], new_label)
-        print('Metrics : ', metrics)
-        return metrics
+    # Calculate the Euclidean distance between two vectors
+    def euclidean_distance(self, row1, row2):
+        distance = 0.0
+        for i in range(len(row1) - 1):
+            distance += (row1[i] - row2[i]) ** 2
+        return math.sqrt(distance)
+
+    # Locate the most similar neighbors
+    def get_neighbors(self, train, test_row, num_neighbors):
+        distances = list()
+        for train_row in train:
+            dist = self.euclidean_distance(test_row, train_row)
+            distances.append((train_row, dist))
+        distances.sort(key=lambda tup: tup[1])
+        neighbors = list()
+        for i in range(num_neighbors):
+            neighbors.append(distances[i][0])
+        return neighbors
+
+    # Make a prediction with neighbors
+    def predict_classification(self, train, test_row, num_neighbors):
+        neighbors = self.get_neighbors(train, test_row, num_neighbors)
+        output_values = [row[-1] for row in neighbors]
+        prediction = max(set(output_values), key=output_values.count)
+        return prediction
+
+    def sklearn_knn(self, X_train, y_train, X_test, num_neighbors):
+        knn = KNeighborsClassifier(n_neighbors=num_neighbors)
+        knn.fit(X_train, y_train)
+        y_pred = knn.predict(X_test)
+        return y_pred
+
+    # kNN Algorithm
+    def k_nearest_neighbors(self, train, test, num_neighbors):
+        predictions = list()
+        for row in test:
+            output = self.predict_classification(train, row, num_neighbors)
+            predictions.append(output)
+        return predictions
+
+    def knn_classifcation(self, df_read, fold, k):
+        # df_read = df_read.astype('float64')
+        sklearn = False
+        if sklearn:
+            y = df_read['label']
+            X = df_read.drop('label', axis=1)
+
+            # Split the data into training and test sets
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+            # Scale the features using StandardScaler
+            scaler = MinMaxScaler()
+            X_train = scaler.fit_transform(X_train)
+            X_test = scaler.transform(X_test)
+            pred = self.sklearn_knn(X_train, y_train, X_test, k)
+            accuracy = accuracy_score(y_test, pred)
+            print('Scores: %s' % accuracy)
+
+            k_values = [i for i in range(2, 7)]
+            scores = []
+
+            scaler = MinMaxScaler()
+            X = scaler.fit_transform(X)
+
+            for k in k_values:
+                knn = KNeighborsClassifier(n_neighbors=k)
+                score = cross_val_score(knn, X, y, cv=10)
+                scores.append(np.mean(score))
+            best_index = np.argmax(scores)
+            best_k = k_values[best_index]
+            print(best_k)
+            knn = KNeighborsClassifier(n_neighbors=best_k)
+            knn.fit(X_train, y_train)
+            y_pred = knn.predict(X_test)
+
+            accuracy = accuracy_score(y_test, y_pred)
+            print(scores)
+            print('Mean Accuracy: %.3f%%' % accuracy)
+            return accuracy
+        else:
+            scores = self.evaluate_algorithm(df_read, self.k_nearest_neighbors, fold, k)
+            print('Scores: %s' % scores)
+            print('Mean Accuracy: %.3f%%' % (sum(scores) / float(len(scores))))
+            return scores

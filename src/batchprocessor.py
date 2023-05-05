@@ -41,6 +41,9 @@ class BatchProcessor:
         for f in os.listdir(self.stats_path):
             os.remove(os.path.join(self.stats_path, f))
 
+        self.feature_path = self._config["features_results_path"]
+        Path(self.feature_path).mkdir(parents=True, exist_ok=True)
+
         self.hist_path = self._config["histogram_results_path"]
         Path(self.hist_path).mkdir(parents=True, exist_ok=True)
         for f in os.listdir(self.hist_path):
@@ -60,19 +63,20 @@ class BatchProcessor:
 
         # initialize classes for different operations
         self.filters = Filters(output_path=self.save_path)
-        self.utils = Utils(output_path=self.save_path, histogram_path=self.hist_path, stat_path=self.stats_path)
+        self.utils = Utils(output_path=self.save_path, histogram_path=self.hist_path, stat_path=self.stats_path,
+                           feature_path=self.feature_path)
         self.noise_functions = Noise(self._config["salt_pepper_noise_strength"],
                                      self._config["gaussian_noise_mean"], self._config["gaussian_noise_std"])
         self.histogram_functions = Histogram()
         self.edge_detection = Edge_Detection(output_path=self.save_path)
         self.morphological_ops = Morphological_Ops(output_path=self.save_path)
         self.segmentation = Segmentation(output_path=self.save_path)
-        self.features = Features(output_path=self.save_path)
+        self.features = Features(self.save_path, self.hist_path, self.stats_path, self.feature_path)
         self.classification = Classification(output_path=self.save_path)
 
         self.func_wise_time_stats = {}
         self.time_stats = []
-        self.features_list = []
+        self.features_list = list()
         self.metrics_list = []
 
         # functionality dictionary will be used to choose function which is input from the config.yaml
@@ -89,8 +93,7 @@ class BatchProcessor:
                                     '11': self.apply_dilation,
                                     '12': self.hist_thresholding,
                                     '13': self.k_means_segmentation,
-                                    '14': self.feature_extractor,
-                                    '15': self.knn_classification}
+                                    '14': self.feature_extractor}
 
         self.class_dictionary = {'1': 'cyl',
                                  '2': 'inter',
@@ -100,8 +103,10 @@ class BatchProcessor:
                                  '6': 'super',
                                  '7': 'svar'}
 
-    def save_timing_data(self, result):
+    def save_data(self, result):
         self.time_stats.append(result[0])
+        if result[1]:
+           self.features_list.append(result[1])
 
     def rgb_to_gray(self, image, cur_image_path):
         return self.utils.rgb_to_grayscale(image)
@@ -159,24 +164,24 @@ class BatchProcessor:
 
     def feature_extractor(self, image, cur_image_path):
         file_name = Path(cur_image_path).name
-        features = np.zeros(11)
         im_binary = self.k_means_segmentation(image, cur_image_path)
+        #im_binary = self.hist_thresholding(im_binary,cur_image_path)
         im_erosion = self.apply_erosion(im_binary, cur_image_path)
         im_dilation = self.apply_dilation(im_binary, cur_image_path)
         im_boundary = im_dilation - im_erosion
-        features[0], features[1], features[2], features[3], features[4], features[5], features[6], features[7], \
-            features[8], features[9] = self.features.feature_extraction(im_binary, im_boundary, im_dilation)
-        features[10] = self.utils.get_label(file_name)
-        self.features_list.append(features)
-        self.utils.save_features_to_csv(features)
+        extracted_features = self.features.feature_extraction(im_binary, im_boundary, im_dilation, file_name)
+
+        return extracted_features
 
     def knn_classification(self, image, cur_image_path):
         df_read = self.utils.read_features()
-        metrics = self.classification.classifcation(df_read, self.k_folds, self.k_knn)
+        metrics = self.classification.knn_classifcation(df_read, self.k_folds, self.k_knn)
         self.metrics_list.append(metrics)
+        return self.metrics_list
 
     def process(self, path, function_list):
 
+        global features
         time_start = time.time()
         current_process = 1
         if self.run_parallel:
@@ -188,22 +193,33 @@ class BatchProcessor:
 
         # apply all requested functions
         for i in function_list:
-            image = self.function_dictionary[str(i)](image, path)
-            if 'image' in locals() and image is not None:
-                self.utils.save_image(image, path)  # save image as grayscale
+            if i == 14:
+                features = self.function_dictionary[str(i)](image, path)
+            elif i == 15:
+                continue
+            else:
+                image = self.function_dictionary[str(i)](image, path)
+                if 'image' in locals() and image is not None:
+                    self.utils.save_image(image, path)  # save image as grayscale
         print(f"{current_process} : done with image {path}")
 
         # return the time took to complete the process
         print([time.time() - time_start])
-        return [time.time() - time_start]
+        return [time.time() - time_start, features]
 
     def run_parallel_batch_mode(self):
         # Creating the process pool based on the cpu count
-        pool = multiprocessing.Pool(os.cpu_count())
-        _ = [pool.apply_async(self.process, callback=self.save_timing_data, args=(path, self.function_list)) for path in
-             self.utils.get_image_path(self.datasets_path)]
-
-        if 6 in self.function_list:
+        if 15 not in self.function_list:
+            pool = multiprocessing.Pool(os.cpu_count())
+            _ = [pool.apply_async(self.process, callback=self.save_data, args=(path, self.function_list)) for path in
+                 self.utils.get_image_path(self.datasets_path)]
+            pool.close()
+            pool.join()
+        if 15 in self.function_list:
+            start = time.time()
+            self.metrics_list = self.knn_classification(None, None)
+            self.time_stats.append(time.time() - start)
+        elif 6 in self.function_list:
             start = time.time()
             self.histogram_functions.average_histogram_per_class()
             for key, bins in self.histogram_functions.averaged_histograms.items():
@@ -212,14 +228,16 @@ class BatchProcessor:
                         self.utils.save_histogram(bins, vals, key + '.BMP')
             self.time_stats.append(time.time() - start)
 
-        pool.close()
-        pool.join()
-
     def run_batch_mode(self):
-        for path in self.utils.get_image_path(self.datasets_path):
-            time_spent = self.process(path, self.function_list)
-            self.save_timing_data(time_spent)
+        if 15 not in self.function_list:
+            for path in self.utils.get_image_path(self.datasets_path):
+                time_spent = self.process(path, self.function_list)
+                self.save_data(time_spent)
 
+        if 15 in self.function_list:
+            start = time.time()
+            self.metrics_list = self.knn_classification(None, None)
+            self.time_stats.append(time.time() - start)
         if 6 in self.function_list:
             start = time.time()
             self.histogram_functions.average_histogram_per_class()
@@ -246,6 +264,8 @@ if __name__ == "__main__":
     average_processing_time = sum(processor.time_stats) / len(processor.time_stats)
 
     print("--- Processing Time Per Image: %s seconds ---\n" % average_processing_time)
+    if processor.features_list:
+        processor.utils.save_features_to_csv(processor.features_list)
 
     processor.func_wise_time_stats['Batch processing time'] = time.time() - start_time
     processor.func_wise_time_stats['processing time per image'] = average_processing_time
