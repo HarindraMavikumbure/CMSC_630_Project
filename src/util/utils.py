@@ -67,14 +67,18 @@ class Utils:
                                        'inertia_3', 'orientation', 'label'])
         return df
 
+    def save_normalized_data(self, df):
+        path = os.path.join(self.feature_path, 'features_normalized.csv')
+        df.to_csv(path, index=False, mode='w', sep=',', header=False)
+
     def save_features_to_csv(self, features):
         print(features)
         path = os.path.join(self.feature_path, 'features.csv')  # join save path and filename
         if os.path.exists(path):
             os.remove(path)
-        else:
-            df = pd.DataFrame(features)
-            df.to_csv(path, index=False, mode='w+', sep=',', header=False)
+        
+        df = pd.DataFrame(features)
+        df.to_csv(path, index=False, mode='w+', sep=',', header=False)
 
     def save_metrics_to_csv(self, metrics):
         path = os.path.join(self.save_stat_path, 'metrics.csv')  # join save path and filename
