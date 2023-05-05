@@ -141,9 +141,9 @@ class Classification:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
             # Scale the features using StandardScaler
-            #scaler = MinMaxScaler()
-            #X_train = scaler.fit_transform(X_train)
-            #X_test = scaler.transform(X_test)
+            scaler = MinMaxScaler()
+            X_train = scaler.fit_transform(X_train)
+            X_test = scaler.transform(X_test)
             pred = self.sklearn_knn(X_train, y_train, X_test, k)
             accuracy = accuracy_score(y_test, pred)
             print('Scores: %s' % accuracy)
