@@ -17,24 +17,32 @@ class Classification:
             This class contains the KNN based classification related functions
     """
 
-    def __init__(self, output_path):
+    def __init__(self, output_path, feature_path, hist_path, stats_path):
         self.path = output_path
-
+        self.utils = Utils(output_path=output_path, histogram_path=hist_path, stat_path=stats_path,
+                           feature_path=feature_path)
     # Find the min and max values for each column
-    def dataset_minmax(self, dataset):
-        minmax = list()
-        for i in range(len(dataset[0])):
-            col_values = [row[i] for row in dataset]
-            value_min = min(col_values)
-            value_max = max(col_values)
-            minmax.append([value_min, value_max])
-        return minmax
 
-    # Rescale dataset columns to the range 0-1
-    def normalize_dataset(self, dataset, minmax):
-        for row in dataset:
-            for i in range(len(row)):
-                row[i] = (row[i] - minmax[i][0]) / (minmax[i][1] - minmax[i][0])
+    def min_max_norm(self, df):
+        """
+        Perform column-wise min-max normalization for a given Pandas DataFrame.
+
+        Parameters:
+            df (pandas.DataFrame): The input DataFrame to be normalized.
+
+        Returns:
+            pandas.DataFrame: The normalized DataFrame.
+        """
+        # Calculate the minimum and maximum values for each column
+        label = df['label']
+        df = df.drop('label', axis=1)
+        col_min = df.min(axis=0)
+        col_max = df.max(axis=0)
+
+        # Subtract the minimum value from each element and divide by the range
+        norm_df = (df - col_min) / (col_max - col_min)
+        norm_df['label'] = label.values.tolist()
+        return norm_df
 
     # Split a dataset into k folds
     def cross_validation_split(self, dataset, n_folds):
@@ -72,6 +80,10 @@ class Classification:
                 test_set.append(row_copy)
                 row_copy[-1] = None
 
+            #mixmax_train = self.dataset_minmax(train_set)
+            #train_set = self.normalize_dataset(train_set, mixmax_train)
+           # mixmax_test = self.dataset_minmax(test_set)
+            #test_set = self.normalize_dataset(test_set, mixmax_test)
             predicted = algorithm(train_set, test_set, *args)
             actual = [row[-1] for row in fold]
             accuracy = self.accuracy_metric(actual, predicted)
@@ -129,35 +141,16 @@ class Classification:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
             # Scale the features using StandardScaler
-            scaler = MinMaxScaler()
-            X_train = scaler.fit_transform(X_train)
-            X_test = scaler.transform(X_test)
+            #scaler = MinMaxScaler()
+            #X_train = scaler.fit_transform(X_train)
+            #X_test = scaler.transform(X_test)
             pred = self.sklearn_knn(X_train, y_train, X_test, k)
             accuracy = accuracy_score(y_test, pred)
             print('Scores: %s' % accuracy)
-
-            k_values = [i for i in range(2, 7)]
-            scores = []
-
-            scaler = MinMaxScaler()
-            X = scaler.fit_transform(X)
-
-            for k in k_values:
-                knn = KNeighborsClassifier(n_neighbors=k)
-                score = cross_val_score(knn, X, y, cv=10)
-                scores.append(np.mean(score))
-            best_index = np.argmax(scores)
-            best_k = k_values[best_index]
-            print(best_k)
-            knn = KNeighborsClassifier(n_neighbors=best_k)
-            knn.fit(X_train, y_train)
-            y_pred = knn.predict(X_test)
-
-            accuracy = accuracy_score(y_test, y_pred)
-            print(scores)
-            print('Mean Accuracy: %.3f%%' % accuracy)
             return accuracy
         else:
+            df_read = self.min_max_norm(df_read)
+            self.utils.save_normalized_data(df_read)
             scores = self.evaluate_algorithm(df_read, self.k_nearest_neighbors, fold, k)
             print('Scores: %s' % scores)
             print('Mean Accuracy: %.3f%%' % (sum(scores) / float(len(scores))))
